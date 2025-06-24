@@ -7,9 +7,11 @@ use std::sync::Arc;
 mod cache_cleaner;
 mod cache_types;
 mod utils;
+mod traversal;
 
 use cache_cleaner::CacheCleaner;
 use cache_types::CacheType;
+use traversal::create_default_clearcacheignore;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -66,6 +68,32 @@ async fn main() -> anyhow::Result<()> {
                 .help("Force deletion without confirmation")
                 .action(clap::ArgAction::SetTrue),
         )
+        .arg(
+            Arg::new("include-libraries")
+                .long("include-libraries")
+                .short('l')
+                .help("Include libraries/dependencies that require reinstallation (node_modules, target, etc.)")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("max-depth")
+                .long("max-depth")
+                .short('d')
+                .help("Maximum directory depth to traverse (default: 20)")
+                .value_name("DEPTH"),
+        )
+        .arg(
+            Arg::new("no-ignore")
+                .long("no-ignore")
+                .help("Ignore .clearcacheignore and .gitignore files")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("generate-ignore")
+                .long("generate-ignore")
+                .help("Generate a default .clearcacheignore file in the current directory")
+                .action(clap::ArgAction::SetTrue),
+        )
         .get_matches();
 
     let directory = matches
@@ -77,6 +105,22 @@ async fn main() -> anyhow::Result<()> {
     let recursive = matches.get_flag("recursive");
     let verbose = matches.get_flag("verbose");
     let _force = matches.get_flag("force");
+    let include_libraries = matches.get_flag("include-libraries");
+
+    // Handle generate-ignore option
+    if matches.get_flag("generate-ignore") {
+        let ignore_path = directory.join(".clearcacheignore");
+        if ignore_path.exists() {
+            println!("{}", "⚠️  .clearcacheignore already exists!".bright_yellow());
+            println!("Use --force to overwrite (not implemented yet)");
+            return Ok(());
+        }
+        
+        std::fs::write(&ignore_path, create_default_clearcacheignore())?;
+        println!("{}", "✅ Generated .clearcacheignore file".bright_green());
+        println!("Edit this file to customize which directories to ignore during cache cleaning.");
+        return Ok(());
+    }
 
     let cache_types = parse_cache_types(matches.get_one::<String>("types").unwrap())?;
 
@@ -85,6 +129,13 @@ async fn main() -> anyhow::Result<()> {
         .map(|s| s.parse::<usize>().unwrap_or(num_cpus::get()))
         .unwrap_or(num_cpus::get());
 
+    let max_depth = matches
+        .get_one::<String>("max-depth")
+        .map(|s| s.parse::<usize>().unwrap_or(20))
+        .unwrap_or(20);
+
+    let no_ignore = matches.get_flag("no-ignore");
+
     println!(
         "{}",
         "🧹 ClearCache - Extremely Efficient Cache Cleaner".bright_cyan().bold()
@@ -92,9 +143,22 @@ async fn main() -> anyhow::Result<()> {
     println!("Directory: {}", directory.display().to_string().bright_yellow());
     println!("Cache types: {}", format_cache_types(&cache_types).bright_green());
     println!("Threads: {}", parallel_threads.to_string().bright_blue());
+    println!("Max depth: {}", max_depth.to_string().bright_blue());
+    
+    if no_ignore {
+        println!("{}", "🚫 Ignoring .clearcacheignore and .gitignore files".bright_red());
+    } else {
+        println!("{}", "📋 Respecting .clearcacheignore and .gitignore files".bright_cyan());
+    }
     
     if dry_run {
         println!("{}", "🔍 DRY RUN MODE - No files will be deleted".bright_yellow().bold());
+    }
+
+    if include_libraries {
+        println!("{}", "📦 LIBRARY MODE - Including dependencies that require reinstallation".bright_red().bold());
+    } else {
+        println!("{}", "🔒 SAFE MODE - Only cleaning temporary caches (use --include-libraries for full clean)".bright_green().bold());
     }
 
     let cleaner = CacheCleaner::new(
@@ -104,6 +168,8 @@ async fn main() -> anyhow::Result<()> {
         recursive,
         dry_run,
         verbose,
+        include_libraries,
+        no_ignore,
     );
 
     let total_size = Arc::new(AtomicU64::new(0));

@@ -1,0 +1,52 @@
+# ClearCache ignore patterns
+# This file uses the same syntax as .gitignore
+# Patterns here will be excluded from cache cleaning
+
+# Version control directories
+.git/
+.svn/
+.hg/
+.bzr/
+
+# IDE and editor directories  
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Important project files
+package.json
+Cargo.toml
+go.mod
+requirements.txt
+setup.py
+Makefile
+CMakeLists.txt
+
+# Documentation
+README*
+LICENSE*
+CHANGELOG*
+CONTRIBUTING*
+docs/
+doc/
+
+# Source code (be careful with these)
+src/
+lib/
+include/
+
+# Configuration files
+config/
+conf/
+settings/

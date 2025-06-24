@@ -1,19 +1,14 @@
 use crate::cache_types::{CachePattern, CacheType};
-use crate::utils::{calculate_directory_size, is_git_ignored, should_skip_directory};
+use crate::traversal::{CacheTraversal, TraversalConfig};
+use crate::utils::calculate_directory_size;
 use anyhow::Result;
 use colored::*;
-
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
-use regex::Regex;
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-
 use std::time::Instant;
-use tokio::fs;
-use walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct CleanResult {
@@ -30,6 +25,8 @@ pub struct CacheCleaner {
     recursive: bool,
     dry_run: bool,
     verbose: bool,
+    include_libraries: bool,
+    no_ignore: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +44,8 @@ impl CacheCleaner {
         recursive: bool,
         dry_run: bool,
         verbose: bool,
+        include_libraries: bool,
+        no_ignore: bool,
     ) -> Self {
         Self {
             root_directory,
@@ -55,6 +54,8 @@ impl CacheCleaner {
             recursive,
             dry_run,
             verbose,
+            include_libraries,
+            no_ignore,
         }
     }
 
@@ -74,10 +75,18 @@ impl CacheCleaner {
         );
         progress.set_message("Scanning directories...");
 
-        // Collect all cache patterns
+        // Collect patterns based on include_libraries flag
         let mut all_patterns = Vec::new();
         for cache_type in &self.cache_types {
-            for pattern in cache_type.get_patterns() {
+            let patterns = if self.include_libraries {
+                // Include all patterns (both safe caches and libraries)
+                cache_type.get_patterns()
+            } else {
+                // Only include safe patterns (exclude libraries)
+                cache_type.get_safe_patterns()
+            };
+            
+            for pattern in patterns {
                 all_patterns.push((cache_type.clone(), pattern));
             }
         }
@@ -168,83 +177,39 @@ impl CacheCleaner {
         patterns: &[(CacheType, CachePattern)],
         progress: &ProgressBar,
     ) -> Result<Vec<CleanTask>> {
-        let mut tasks = Vec::new();
-        let mut visited = HashSet::new();
+        progress.set_message("Initializing efficient cache traversal...");
 
-        if self.recursive {
-            // Recursive search
-            for entry in WalkDir::new(&self.root_directory)
-                .follow_links(false)
-                .max_depth(10) // Reasonable depth limit
-            {
-                let entry = entry?;
-                let path = entry.path();
+        // Configure traversal based on user preferences
+        let config = TraversalConfig {
+            max_depth: if self.recursive { 20 } else { 1 },
+            follow_links: false, // Don't follow symlinks for safety
+            ignore_hidden: false, // We want to find cache dirs that start with .
+            respect_gitignore: !self.no_ignore,
+            respect_clearcacheignore: !self.no_ignore,
+            parallel: self.parallel_threads > 1,
+        };
 
-                if should_skip_directory(path) || is_git_ignored(path) {
-                    continue;
-                }
+        // Create traversal engine
+        let traversal = CacheTraversal::new(config, patterns.to_vec());
+        
+        progress.set_message("Scanning directories with optimized traversal...");
+        
+        // Use the new efficient traversal system
+        let found_items = traversal.find_cache_items(&self.root_directory)?;
+        
+        progress.set_message(format!("Found {} cache items", found_items.len()));
 
-                for (cache_type, pattern) in patterns {
-                    if self.matches_pattern(path, pattern) {
-                        let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-                        if visited.insert(canonical.clone()) {
-                            tasks.push(CleanTask {
-                                path: canonical,
-                                pattern: pattern.clone(),
-                                cache_type: cache_type.clone(),
-                            });
-                        }
-                    }
-                }
-
-                if tasks.len() % 100 == 0 {
-                    progress.set_message(format!("Scanning... found {} items", tasks.len()));
-                }
-            }
-        } else {
-            // Non-recursive search (current directory only)
-            let entries = fs::read_dir(&self.root_directory).await?;
-            let mut entries = entries;
-
-            while let Some(entry) = entries.next_entry().await? {
-                let path = entry.path();
-
-                for (cache_type, pattern) in patterns {
-                    if self.matches_pattern(&path, pattern) {
-                        tasks.push(CleanTask {
-                            path: path.clone(),
-                            pattern: pattern.clone(),
-                            cache_type: cache_type.clone(),
-                        });
-                    }
-                }
-            }
-        }
+        // Convert FoundCacheItem to CleanTask
+        let tasks: Vec<CleanTask> = found_items
+            .into_iter()
+            .map(|item| CleanTask {
+                path: item.path,
+                pattern: item.pattern,
+                cache_type: item.cache_type,
+            })
+            .collect();
 
         Ok(tasks)
-    }
-
-    fn matches_pattern(&self, path: &Path, pattern: &CachePattern) -> bool {
-        let file_name = path.file_name().unwrap_or_default().to_string_lossy();
-        let path_str = path.to_string_lossy();
-
-        for pattern_str in &pattern.patterns {
-            if pattern_str.contains('*') {
-                // Glob pattern
-                if let Ok(regex) = glob_to_regex(pattern_str) {
-                    if regex.is_match(&file_name) || regex.is_match(&path_str) {
-                        return true;
-                    }
-                }
-            } else {
-                // Exact match
-                if file_name == pattern_str.as_str() || path_str.ends_with(pattern_str) {
-                    return true;
-                }
-            }
-        }
-
-        false
     }
 
     fn process_chunk(
@@ -260,10 +225,12 @@ impl CacheCleaner {
 
         for task in tasks {
             if self.verbose {
+                let library_indicator = if task.pattern.is_library { " [LIBRARY]" } else { "" };
                 println!(
-                    "Processing: {} ({})",
+                    "Processing: {} ({}{})",
                     task.path.display().to_string().bright_blue(),
-                    task.pattern.description.bright_yellow()
+                    task.pattern.description.bright_yellow(),
+                    library_indicator.bright_red()
                 );
             }
 
@@ -276,12 +243,14 @@ impl CacheCleaner {
                     total_size.fetch_add(size, Ordering::Relaxed);
 
                     if self.verbose || self.dry_run {
+                        let library_indicator = if task.pattern.is_library { " [LIBRARY]" } else { "" };
                         println!(
-                            "  {} {} ({} files, {})",
+                            "  {} {} ({} files, {}{})",
                             if self.dry_run { "Would delete:" } else { "Deleted:" },
                             task.path.display().to_string().bright_green(),
                             files.to_string().bright_cyan(),
-                            humansize::format_size(size, humansize::BINARY).bright_cyan()
+                            humansize::format_size(size, humansize::BINARY).bright_cyan(),
+                            library_indicator.bright_red()
                         );
                     }
                 }
@@ -367,13 +336,4 @@ impl CacheCleaner {
 
         Ok(())
     }
-}
-
-fn glob_to_regex(pattern: &str) -> Result<Regex> {
-    let regex_pattern = pattern
-        .replace(".", r"\.")
-        .replace("*", ".*")
-        .replace("?", ".");
-    
-    Ok(Regex::new(&format!("^{}$", regex_pattern))?)
 } 

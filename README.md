@@ -90,10 +90,10 @@ cp target/release/clearcache /usr/local/bin/
 
 ### Basic Usage
 ```bash
-# Clean current directory
+# Clean current directory (safe caches only)
 clearcache
 
-# Clean specific directory
+# Clean specific directory (safe caches only)
 clearcache /path/to/project
 
 # Clean recursively (all subdirectories)
@@ -101,13 +101,33 @@ clearcache --recursive
 
 # Dry run (show what would be deleted)
 clearcache --dry-run
+
+# Include libraries/dependencies (requires reinstallation)
+clearcache --include-libraries
 ```
+
+### Safe vs Library Cleaning
+
+**Safe Mode (Default)**: Cleans temporary caches that don't require reinstallation:
+- Python: `__pycache__`, `.pytest_cache`, `.mypy_cache`, bytecode files
+- Node.js: `.npm`, `.next`, `.nuxt`, `.turbo`, `.parcel-cache`
+- Rust: `Cargo.lock` (in some cases)
+- Go: `go-build` cache
+- General: build outputs, temp files, logs
+
+**Library Mode (`--include-libraries`)**: Additionally cleans dependencies requiring reinstallation:
+- Node.js: `node_modules`
+- Rust: `target` directories
+- Go: `pkg/mod` module cache
 
 ### Advanced Usage
 ```bash
-# Clean only specific cache types
+# Clean only specific cache types (safe mode)
 clearcache --types node,rust
 clearcache --types python,docker
+
+# Clean with libraries included
+clearcache --include-libraries --types node,rust
 
 # Clean with verbose output
 clearcache --verbose
@@ -116,7 +136,7 @@ clearcache --verbose
 clearcache --parallel 16
 
 # Combine options
-clearcache --recursive --dry-run --verbose --types node,rust
+clearcache --recursive --dry-run --verbose --types node,rust --include-libraries
 ```
 
 ### Cache Types
@@ -142,6 +162,7 @@ OPTIONS:
     -n, --dry-run              Show what would be deleted without actually deleting
     -r, --recursive            Recursively clean all subdirectories
     -t, --types <TYPES>        Comma-separated list of cache types to clean [default: all]
+    -l, --include-libraries    Include libraries/dependencies that require reinstallation
     -p, --parallel <NUM>       Number of parallel threads (default: CPU count)
     -v, --verbose              Verbose output
     -f, --force                Force deletion without confirmation
@@ -170,17 +191,41 @@ Based on comprehensive benchmarks, this Rust implementation significantly outper
 
 ## Example Output
 
+### Safe Mode (Default)
 ```
 🧹 ClearCache - Extremely Efficient Cache Cleaner
 Directory: /Users/dev/projects
 Cache types: Node, Rust, Go, Python, Docker, General
 Threads: 16
+🔒 SAFE MODE - Only cleaning temporary caches (use --include-libraries for full clean)
+
+⠋ Scanning directories...
+Found 15 cache items to clean
+
+  Deleted: /Users/dev/project1/.next (234 files, 15.2 MB)
+  Deleted: /Users/dev/project2/__pycache__ (12 files, 2.1 MB)
+  Deleted: /Users/dev/project3/.pytest_cache (45 files, 8.3 MB)
+
+📊 Summary
+Files processed: 291
+Space freed: 25.6 MB
+Directories cleaned: 15
+✅ All operations completed successfully!
+```
+
+### Library Mode (--include-libraries)
+```
+🧹 ClearCache - Extremely Efficient Cache Cleaner
+Directory: /Users/dev/projects
+Cache types: Node, Rust, Go, Python, Docker, General
+Threads: 16
+📦 LIBRARY MODE - Including dependencies that require reinstallation
 
 ⠋ Scanning directories...
 Found 23 cache items to clean
 
-  Deleted: /Users/dev/project1/node_modules (1,234 files, 45.2 MB)
-  Deleted: /Users/dev/project2/target (567 files, 123.4 MB)  
+  Deleted: /Users/dev/project1/node_modules [LIBRARY] (1,234 files, 45.2 MB)
+  Deleted: /Users/dev/project2/target [LIBRARY] (567 files, 123.4 MB)  
   Deleted: /Users/dev/project3/__pycache__ (12 files, 2.1 MB)
 
 📊 Summary

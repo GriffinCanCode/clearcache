@@ -13,7 +13,13 @@ The entry point provides argument parsing, validation, and user interaction. Bui
 The central orchestration component manages the cleaning workflow. It coordinates discovery, validation, and deletion operations while maintaining thread safety and error resilience.
 
 **Cache Type System**
-A pattern-based classification system that identifies cache artifacts across different development ecosystems. Each cache type encapsulates specific patterns, safety rules, and metadata for targeted cleaning operations.
+A pattern-based classification system that identifies cache artifacts across different development ecosystems. Each cache type encapsulates specific patterns, safety rules, library classification, and metadata for targeted cleaning operations. The system operates in two modes: Safe Mode (default) for temporary caches and Library Mode for dependencies requiring reinstallation.
+
+**Advanced Traversal Engine**
+High-performance directory traversal system with multiple engine implementations optimized for different scenarios. Uses the industry-standard walkdir library for maximum speed when ignore files aren't needed, and the ignore crate for full gitignore and clearcacheignore support with parallel processing capabilities. Automatically selects the optimal traversal method based on user preferences and configuration.
+
+**Ignore Pattern System**
+Comprehensive ignore system supporting `.clearcacheignore` files with gitignore-compatible syntax. Provides hierarchical pattern processing, automatic pattern compilation for performance, and seamless integration with the traversal engine. Enables fine-grained control over which directories and files are excluded from cache cleaning operations.
 
 **Safety Validation Layer**
 Multi-stage validation system that prevents accidental deletion of critical files. Implements path analysis, content inspection, and heuristic-based protection mechanisms.
@@ -27,20 +33,22 @@ Common operations including directory traversal, size calculation, path manipula
 ### Data Flow Architecture
 
 ```
-CLI Input → Argument Validation → Cache Type Selection
+CLI Input → Argument Validation → Cache Type Selection → Mode Selection (Safe/Library)
     ↓
-Pattern Compilation → Directory Discovery → Path Validation
+Pattern Compilation → Pattern Filtering (by mode) → Traversal Engine Selection → Ignore File Discovery
     ↓
-Safety Checks → Parallel Processing → Cleanup Operations
+Advanced Directory Traversal → Pattern Matching → Ignore Pattern Processing → Path Validation
+    ↓
+Safety Checks → Library Classification → Parallel Processing → Cleanup Operations
     ↓
 Result Aggregation → Error Handling → User Reporting
 ```
 
 **Discovery Phase**
-The system performs filesystem traversal using optimized walking algorithms. Directory entries are evaluated against compiled patterns for each selected cache type. The discovery process respects depth limits and skip patterns to avoid infinite recursion and unnecessary processing.
+The system performs filesystem traversal using an advanced multi-engine approach. The traversal engine automatically selects between walkdir (maximum performance) and ignore crate (full gitignore support) based on user configuration. Directory entries are evaluated against compiled patterns for each selected cache type, filtered by the selected mode (safe vs library), and processed through ignore pattern matching. The discovery process respects depth limits, ignore patterns, and skip patterns to avoid infinite recursion and unnecessary processing.
 
 **Validation Phase**
-Each discovered path undergoes multi-layer validation including system path protection, important file detection, and content analysis. The validation system uses both static rules and dynamic heuristics to ensure safe operation.
+Each discovered path undergoes multi-layer validation including system path protection, important file detection, library classification verification, and content analysis. The validation system uses both static rules and dynamic heuristics to ensure safe operation and proper mode compliance.
 
 **Execution Phase**
 Validated targets are processed in parallel using a work-stealing scheduler. Each thread operates on independent data structures to eliminate contention while maintaining shared progress tracking and error collection.

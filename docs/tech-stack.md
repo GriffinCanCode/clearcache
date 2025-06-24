@@ -55,7 +55,7 @@ Benchmarking against alternative languages revealed significant performance adva
 - tokio (async runtime, better for I/O-bound tasks)
 - crossbeam (lower-level primitives, more complex to use correctly)
 
-### Filesystem Operations: walkdir 2.3
+### Filesystem Operations: walkdir 2.4
 
 **Selection Criteria**: Efficient directory traversal with cross-platform consistency.
 
@@ -68,6 +68,34 @@ Benchmarking against alternative languages revealed significant performance adva
 **Alternatives Considered**:
 - std::fs (basic functionality, lacks advanced features)
 - ignore (focused on gitignore patterns, more specialized)
+
+### Ignore Pattern Processing: ignore 0.4
+
+**Selection Criteria**: Comprehensive gitignore-compatible pattern matching with parallel processing support.
+
+**Advantages**:
+- Full gitignore syntax compatibility including advanced patterns
+- High-performance parallel directory traversal
+- Built-in support for custom ignore files (.clearcacheignore)
+- Excellent integration with walkdir for hybrid approaches
+
+**Alternatives Considered**:
+- globset (pattern matching only, no traversal integration)
+- git2 (full git integration, overly complex for ignore patterns)
+
+### Pattern Matching: glob 0.3
+
+**Selection Criteria**: Efficient glob pattern compilation and matching for cache pattern recognition.
+
+**Advantages**:
+- Fast glob pattern compilation and matching
+- Cross-platform path pattern support
+- Minimal memory allocation during matching
+- Simple API for common use cases
+
+**Alternatives Considered**:
+- regex (more powerful but heavier for simple glob patterns)
+- globset (more features but higher complexity)
 
 ### Progress Indication: indicatif 0.17
 
