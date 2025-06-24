@@ -5,6 +5,8 @@
 
 ClearCache is a high-performance cache clearing system designed specifically for development environments. Built in Rust, it provides safe, efficient, and comprehensive cache management across multiple development ecosystems including Node.js, Rust, Go, Python, Docker, and general build artifacts.
 
+**Important**: ClearCache ignores `.gitignore` files by default since cache directories (like `target/`, `node_modules/`, `__pycache__/`) are often in `.gitignore` but should still be cleaned. Use `--respect-gitignore` if you want to honor `.gitignore` patterns.
+
 ## Why ClearCache
 
 Development environments accumulate substantial cache data over time. Node.js projects can generate gigabytes in `node_modules`, Rust projects create large `target` directories, and various build tools leave behind temporary files. Manual cleanup is time-consuming and error-prone. ClearCache solves this by providing automated, safe, and extremely fast cache management.
@@ -166,6 +168,8 @@ OPTIONS:
     -p, --parallel <NUM>       Number of parallel threads (default: CPU count)
     -v, --verbose              Verbose output
     -f, --force                Force deletion without confirmation
+        --respect-gitignore    Respect .gitignore files (by default, .gitignore is ignored)
+        --no-ignore            Ignore .clearcacheignore files
     -h, --help                 Print help information
     -V, --version              Print version information
 ```
@@ -184,7 +188,7 @@ Based on comprehensive benchmarks, this Rust implementation significantly outper
 
 - **System Path Protection**: Prevents deletion of critical system directories
 - **Important File Detection**: Skips directories containing important project files
-- **Git Integration**: Respects `.gitignore` patterns
+- **Intelligent Git Integration**: By default ignores `.gitignore` files since cache directories are often excluded from version control but should still be cleaned. Use `--respect-gitignore` to honor `.gitignore` patterns.
 - **Path Validation**: Multiple checks to ensure safe deletion
 - **Dry Run Mode**: Always test before actual deletion
 - **Depth Limiting**: Prevents infinite recursion

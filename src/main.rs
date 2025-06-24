@@ -85,7 +85,13 @@ async fn main() -> anyhow::Result<()> {
         .arg(
             Arg::new("no-ignore")
                 .long("no-ignore")
-                .help("Ignore .clearcacheignore and .gitignore files")
+                .help("Ignore .clearcacheignore files")
+                .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("respect-gitignore")
+                .long("respect-gitignore")
+                .help("Respect .gitignore files (by default, .gitignore is ignored for cache cleaning)")
                 .action(clap::ArgAction::SetTrue),
         )
         .arg(
@@ -135,6 +141,7 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(20);
 
     let no_ignore = matches.get_flag("no-ignore");
+    let respect_gitignore = matches.get_flag("respect-gitignore");
 
     println!(
         "{}",
@@ -146,9 +153,15 @@ async fn main() -> anyhow::Result<()> {
     println!("Max depth: {}", max_depth.to_string().bright_blue());
     
     if no_ignore {
-        println!("{}", "🚫 Ignoring .clearcacheignore and .gitignore files".bright_red());
+        println!("{}", "🚫 Ignoring .clearcacheignore files".bright_red());
     } else {
-        println!("{}", "📋 Respecting .clearcacheignore and .gitignore files".bright_cyan());
+        println!("{}", "📋 Respecting .clearcacheignore files".bright_cyan());
+    }
+    
+    if respect_gitignore {
+        println!("{}", "📋 Respecting .gitignore files".bright_cyan());
+    } else {
+        println!("{}", "🔍 Ignoring .gitignore files (cache directories are often in .gitignore)".bright_yellow());
     }
     
     if dry_run {
@@ -170,6 +183,7 @@ async fn main() -> anyhow::Result<()> {
         verbose,
         include_libraries,
         no_ignore,
+        respect_gitignore,
     );
 
     let total_size = Arc::new(AtomicU64::new(0));

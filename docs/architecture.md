@@ -19,7 +19,7 @@ A pattern-based classification system that identifies cache artifacts across dif
 High-performance directory traversal system with multiple engine implementations optimized for different scenarios. Uses the industry-standard walkdir library for maximum speed when ignore files aren't needed, and the ignore crate for full gitignore and clearcacheignore support with parallel processing capabilities. Automatically selects the optimal traversal method based on user preferences and configuration.
 
 **Ignore Pattern System**
-Comprehensive ignore system supporting `.clearcacheignore` files with gitignore-compatible syntax. Provides hierarchical pattern processing, automatic pattern compilation for performance, and seamless integration with the traversal engine. Enables fine-grained control over which directories and files are excluded from cache cleaning operations.
+Comprehensive ignore system supporting `.clearcacheignore` files with gitignore-compatible syntax. By default, ignores `.gitignore` files since cache directories are often excluded from version control but should still be cleaned. Provides hierarchical pattern processing, automatic pattern compilation for performance, and seamless integration with the traversal engine. Users can opt-in to respect `.gitignore` with the `--respect-gitignore` flag. Enables fine-grained control over which directories and files are excluded from cache cleaning operations.
 
 **Safety Validation Layer**
 Multi-stage validation system that prevents accidental deletion of critical files. Implements path analysis, content inspection, and heuristic-based protection mechanisms.

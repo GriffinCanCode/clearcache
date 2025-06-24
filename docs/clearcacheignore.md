@@ -2,6 +2,8 @@
 
 ClearCache implements a comprehensive ignore system that allows users to exclude specific directories and files from cache cleaning operations. The `.clearcacheignore` file uses the same syntax as `.gitignore`, providing familiar and powerful pattern matching capabilities for fine-grained control over cache cleaning behavior.
 
+**Important**: By default, ClearCache ignores `.gitignore` files when searching for cache directories, since many cache directories (like `target/`, `node_modules/`, etc.) are typically in `.gitignore` but should still be cleaned. Use the `--respect-gitignore` flag if you want ClearCache to respect `.gitignore` patterns.
+
 ## Overview
 
 The ignore system provides essential protection against accidental deletion of important files while enabling flexible customization of cache cleaning behavior. It operates alongside the built-in safety mechanisms to create multiple layers of protection for critical project files and directories.
@@ -18,6 +20,8 @@ The ignore system provides essential protection against accidental deletion of i
 
 **Flexible Control**: Provides both global exclusions and project-specific customizations through multiple configuration levels.
 
+**Intelligent .gitignore Handling**: By default ignores `.gitignore` files since cache directories are often excluded from version control but should still be cleaned. Users can opt-in to respect `.gitignore` with the `--respect-gitignore` flag.
+
 ## File Location and Discovery
 
 ### Automatic Discovery
@@ -28,6 +32,8 @@ ClearCache automatically discovers and processes `.clearcacheignore` files durin
 2. **Parent Directories**: Traverses up the directory tree to find additional ignore files
 3. **Global Configuration**: System-wide ignore patterns (future enhancement)
 
+**Note**: `.gitignore` files are ignored by default. Use `--respect-gitignore` to include them in pattern processing.
+
 ### Hierarchical Behavior
 
 **Pattern Inheritance**: Patterns from parent directories apply to subdirectories unless overridden.
@@ -35,6 +41,47 @@ ClearCache automatically discovers and processes `.clearcacheignore` files durin
 **Local Overrides**: More specific patterns in subdirectories take precedence over general patterns from parent directories.
 
 **Cumulative Effect**: Multiple ignore files combine their patterns, creating comprehensive protection coverage.
+
+## GitIgnore Behavior
+
+### Default Behavior (Recommended)
+
+By default, ClearCache ignores `.gitignore` files when searching for cache directories:
+
+```bash
+# Default behavior - ignores .gitignore files
+clearcache --recursive
+```
+
+**Rationale**: Many cache directories are added to `.gitignore` to keep them out of version control:
+- `target/` (Rust build artifacts)
+- `node_modules/` (Node.js dependencies)  
+- `__pycache__/` (Python bytecode)
+- `build/`, `dist/` (Build outputs)
+
+These directories should still be cleaned even though they're in `.gitignore`.
+
+### Respecting GitIgnore (Optional)
+
+Use the `--respect-gitignore` flag to honor `.gitignore` patterns:
+
+```bash
+# Respect both .gitignore and .clearcacheignore
+clearcache --recursive --respect-gitignore
+```
+
+**Use Cases**:
+- When you want `.gitignore` to also control cache cleaning
+- In environments where `.gitignore` contains important exclusions
+- For consistency with git-based workflows
+
+### Ignore File Priority
+
+When both files are processed (with `--respect-gitignore`):
+1. `.clearcacheignore` patterns are processed first
+2. `.gitignore` patterns are processed second
+3. More specific patterns override general patterns
+4. Built-in safety mechanisms always take precedence
 
 ## Syntax and Pattern Matching
 
@@ -257,12 +304,17 @@ certificates/
 
 ### Ignore Control Options
 
-**Respect Ignore Files** (Default):
+**Default Behavior** (Respects .clearcacheignore, ignores .gitignore):
 ```bash
 clearcache --recursive
 ```
 
-**Disable Ignore Processing**:
+**Respect Both Ignore Files**:
+```bash
+clearcache --recursive --respect-gitignore
+```
+
+**Disable All Ignore Processing**:
 ```bash
 clearcache --recursive --no-ignore
 ```
@@ -274,17 +326,20 @@ clearcache --generate-ignore
 
 ### Verification and Testing
 
-**Dry Run with Ignore Files**:
+**Dry Run with Default Behavior**:
 ```bash
 clearcache --recursive --dry-run --verbose
 ```
 
-**Compare With and Without Ignores**:
+**Compare Different Ignore Behaviors**:
 ```bash
-# With ignores (default)
+# Default: .clearcacheignore only
 clearcache --recursive --dry-run
 
-# Without ignores
+# Respect both .clearcacheignore and .gitignore
+clearcache --recursive --dry-run --respect-gitignore
+
+# No ignore files
 clearcache --recursive --dry-run --no-ignore
 ```
 

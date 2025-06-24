@@ -44,7 +44,7 @@ ClearCache implements a sophisticated pattern-based system for identifying and m
 **Library Dependencies** (Require `--include-libraries` flag):
 - `node_modules`: Primary dependency storage - requires `npm install` or equivalent to restore
 
-**Rationale**: Node.js ecosystem generates substantial cache data through package managers and build tools. Safe caches can be regenerated during the next build or development session, while `node_modules` contains installed packages that require explicit reinstallation.
+**Rationale**: Node.js ecosystem generates substantial cache data through package managers and build tools. Safe caches can be regenerated during the next build or development session, while `node_modules` contains installed packages that require explicit reinstallation. Note that `node_modules` is typically in `.gitignore`, but ClearCache ignores `.gitignore` by default to ensure cache directories are still cleaned.
 
 ### Rust Ecosystem
 
@@ -54,7 +54,7 @@ ClearCache implements a sophisticated pattern-based system for identifying and m
 **Safe Caches** (Default cleaning):
 - `Cargo.lock`: Dependency lock file (with safety restrictions for active projects)
 
-**Safety Considerations**: Rust projects often have valuable incremental compilation data in target directories. The system carefully validates project context before cleaning to preserve active development work. Target directories are classified as libraries since they contain compiled dependencies that take significant time to rebuild.
+**Safety Considerations**: Rust projects often have valuable incremental compilation data in target directories. The system carefully validates project context before cleaning to preserve active development work. Target directories are classified as libraries since they contain compiled dependencies that take significant time to rebuild. Note that `target/` is typically in `.gitignore`, but ClearCache ignores `.gitignore` by default to ensure cache directories are still cleaned.
 
 ### Go Ecosystem
 

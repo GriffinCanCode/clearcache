@@ -27,6 +27,7 @@ pub struct CacheCleaner {
     verbose: bool,
     include_libraries: bool,
     no_ignore: bool,
+    respect_gitignore: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +47,7 @@ impl CacheCleaner {
         verbose: bool,
         include_libraries: bool,
         no_ignore: bool,
+        respect_gitignore: bool,
     ) -> Self {
         Self {
             root_directory,
@@ -56,6 +58,7 @@ impl CacheCleaner {
             verbose,
             include_libraries,
             no_ignore,
+            respect_gitignore,
         }
     }
 
@@ -180,11 +183,15 @@ impl CacheCleaner {
         progress.set_message("Initializing efficient cache traversal...");
 
         // Configure traversal based on user preferences
+        // By default, we don't respect .gitignore for cache cleaning since many
+        // cache directories (target/, node_modules/, etc.) are in .gitignore
+        // but we still want to clean them. We still respect .clearcacheignore
+        // for user-specific exclusions.
         let config = TraversalConfig {
             max_depth: if self.recursive { 20 } else { 1 },
             follow_links: false, // Don't follow symlinks for safety
             ignore_hidden: false, // We want to find cache dirs that start with .
-            respect_gitignore: !self.no_ignore,
+            respect_gitignore: self.respect_gitignore, // User can opt-in to respect .gitignore
             respect_clearcacheignore: !self.no_ignore,
             parallel: self.parallel_threads > 1,
         };
